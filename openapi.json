@@ -1,0 +1,8 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Coders For Coders API",
+    "version": "0.0.1",
+    "description": "API for the Coders For Coders project"
+  }
+}

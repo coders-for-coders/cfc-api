@@ -2,3 +2,6 @@
 .venv
 *.pyc
 mongo.py
+__pycache__/
+*.pyc
+*.log
