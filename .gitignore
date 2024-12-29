@@ -1,7 +1,7 @@
 .env
 .venv
 *.pyc
-mongo.py
+./mongo.py
 __pycache__/
 *.pyc
 *.log

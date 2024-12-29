@@ -1,12 +1,13 @@
 import os
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 import httpx
 
-class GithubAuth:
+class GithubAuthRouter:
     def __init__(self):
         self.router = APIRouter(prefix="/api/auth")
+        
         self.client_id = os.getenv("GITHUB_CLIENT_ID")
         self.client_secret = os.getenv("GITHUB_CLIENT_SECRET")
         self.callback_url = os.getenv("GITHUB_CALLBACK_URL")

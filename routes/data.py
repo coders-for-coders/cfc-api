@@ -5,7 +5,7 @@ from typing import List, Optional
 from utils.data.mongo import MongoManager
 
 class Resource(BaseModel):
-    id: str = Field(default_factory=lambda: str(ObjectId()))
+    id: str
     title: str
     content: str
     description: str
@@ -34,69 +34,55 @@ class DataRouter:
         Setup the routes for the data router.
         """
         self.router.add_api_route(
-            path="/resources",
-            endpoint=self.get_resources,
-            methods=["GET"],
-            response_model=List[Resource],
-        )
-        self.router.add_api_route(
-            path="/resources",
-            endpoint=self.create_resource,
-            methods=["POST"],
-            response_model=Resource,
-        )
-        self.router.add_api_route(
-            path="/resources/{id}",
+            path="/resource",
             endpoint=self.get_resource,
             methods=["GET"],
-            response_model=Resource,
+            response_model=List[Resource] | Resource,
         )
         self.router.add_api_route(
-            path="/resources/{id}",
+            path="/resource",
+            endpoint=self.create_resource,
+            methods=["POST"],
+            response_model=dict,
+        )
+        self.router.add_api_route(
+            path="/resource",
             endpoint=self.update_resource,
             methods=["PUT"],
             response_model=Resource,
         )
         self.router.add_api_route(
-            path="/resources/{id}", endpoint=self.delete_resource, methods=["DELETE"]
+            path="/resource", 
+            endpoint=self.delete_resource, 
+            methods=["DELETE"]
         )
 
-    async def get_resources(self, type: Optional[str] = None) -> List[Resource]:
+    async def get_resource(self, id: Optional[str] = None, type: Optional[str] = None) -> List[Resource] | Resource:
         """
-        Get all resources of a specific type.
+        Get a resource by ID or get all resources of a specific type.
 
         Args:
+            id (Optional[str]): The ID of the resource to fetch.
             type (Optional[str]): The type of resources to fetch.
 
         Returns:
-            List[Resource]: A list of resources.
+            Union[List[Resource], Resource]: Either a single resource or list of resources.
         """
         try:
-            filter = {"type": type} if type else {}
-            resources = await self.db.get_all_documents("resources", filter)
-            return [Resource(**resource) for resource in resources]
+            if id:
+                resource = await self.db.get_document_by_id("resources", id)
+                return Resource(**resource)
+            else:
+                filter = {"type": type} if type else {}
+                resources = await self.db.get_all_documents("resources", filter)
+                return [Resource(**resource) for resource in resources]
         except Exception as e:
             raise HTTPException(
-                status_code=500, detail="An error occurred while fetching resources"
+                status_code=500, 
+                detail="Failed to fetch resource" if id else "An error occurred while fetching resources"
             )
 
-    async def get_resource(self, id: str) -> Resource:
-        """
-        Get a resource by its ID.
-
-        Args:
-            id (str): The ID of the resource to fetch.
-
-        Returns:
-            Resource: The fetched resource.
-        """
-        try:
-            resource = await self.db.get_document_by_id("resources", id)
-            return Resource(**resource)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch resource")
-
-    async def create_resource(self, resource: Resource) -> Resource:
+    async def create_resource(self, resource: Resource) -> dict:
         """
         Create a new resource in the database.
 
@@ -104,33 +90,46 @@ class DataRouter:
             resource (Resource): The resource data to create.
 
         Returns:
-            Resource: The created resource.
+            dict: Response containing created resource ID and details
         """
         try:
-            created = await self.db.create_document("resources", resource.dict())
-            return Resource(**created)
+            created = await self.db.create_document("resources", resource.model_dump(mode="json"))
+            return {
+                "status": "success",
+                "message": "Resource created successfully",
+                "id": str(created["_id"]),
+                "resource": {
+                    "title": created["title"],
+                    "type": created["type"],
+                    "created_at": created.get("_id").generation_time.isoformat()
+                }
+            }
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to create resource")
 
-    async def update_resource(self, id: str, resource: Resource) -> Resource:
+    async def update_resource(self, resource: Resource, id: Optional[str] = None) -> Resource:
         """
         Update a resource in the database.
 
         Args:
-            id (str): The ID of the resource to update.
             resource (Resource): The updated resource data.
+            id (Optional[str]): The ID of the resource to update.
 
         Returns:
             Resource: The updated resource.
         """
         try:
+            if not id:
+                raise HTTPException(status_code=400, detail="Resource ID is required")
             updated = await self.db.update_document("resources", id, resource.dict())
             return Resource(**updated)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to update resource")
 
-    async def delete_resource(self, id: str) -> dict[str, str]:
+    async def delete_resource(self, id: Optional[str] = None) -> dict[str, str]:
         try:
+            if not id:
+                raise HTTPException(status_code=400, detail="Resource ID is required")
             await self.db.delete_document("resources", id)
             return {"message": "Resource deleted successfully"}
         except Exception as e:

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 
-from core.logger import logger
+from core.logger import Logger
 from utils.data.mongo import MongoManager
 
 class App:
@@ -14,12 +14,14 @@ class App:
             title="Coders For Coders API",
             docs_url=None,
             redoc_url=None,
-            openapi_url=None
+            openapi_url=None,
+            version="0.1"
         )
         self.db = MongoManager()
         self._configure_cors()
-        self.logger = logger
+        self.logger = Logger()
         self.app.middleware("http")(self.log_requests)
+
         self.app.get("/api/docs")(self.get_docs)
         self.app.get("/openapi.json")(self.get_openapi_schema)
         
@@ -100,5 +102,3 @@ class App:
     def cleanup(self):
         self.logger.info("Cleaning up resources...")
         self.db.close()
-
-app = App()
