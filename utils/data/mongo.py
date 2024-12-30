@@ -15,12 +15,14 @@ class MongoManager:
     _database: Optional[AsyncIOMotorDatabase] 
     _collections: Dict[str, AsyncIOMotorCollection] = {}
 
-    def __new__(cls):
+    def __new__(cls, database_name: str = "cfc_db"):
         if cls._instance is None:
             cls._instance = super(MongoManager, cls).__new__(cls)
+            cls._instance._database_name = database_name
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, database_name: str = "cfc_db"):
+        self._database_name = database_name
         if not hasattr(self, '_client'):
             self._initialize_connection()
 
@@ -30,7 +32,7 @@ class MongoManager:
             raise ValueError("MONGODB environment variable not set")
             
         self._client = AsyncIOMotorClient(mongodb_url)
-        self._database = self._client.get_database("cfc_db")
+        self._database = self._client.get_database(self._database_name)
 
     @property
     def client(self) -> AsyncIOMotorClient:
