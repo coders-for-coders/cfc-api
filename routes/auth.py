@@ -36,13 +36,14 @@ class GithubAuthRouter:
             )
             
             token_data = response.json()
+
             access_token = token_data.get("access_token")
             
             if not access_token:
                 return {"error": "Failed to get access token"}
         
             user_response = await client.get(
-                "https://api.github.com/user",
+                "https://api.github.com/user/repos",
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Accept": "application/json"

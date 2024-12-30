@@ -8,6 +8,7 @@ from fastapi.openapi.utils import get_openapi
 from core.logger import Logger
 from utils.data.mongo import MongoManager
 
+
 class App:
     def __init__(self):
         self.app = FastAPI(
@@ -17,18 +18,18 @@ class App:
             openapi_url=None,
             version="0.1"
         )
-        self.db = MongoManager()
         self._configure_cors()
         self.logger = Logger()
+        self.db = MongoManager("cfc_db")
         self.app.middleware("http")(self.log_requests)
 
         self.app.get("/api/docs")(self.get_docs)
         self.app.get("/openapi.json")(self.get_openapi_schema)
-        
+
     def _configure_cors(self):
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],  
+            allow_origins=["http://localhost:5173"],
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -66,7 +67,7 @@ class App:
             self.app.include_router(router)
             if not router.prefix == '/api':
                 self.logger.info(f"Registered router: {router.prefix}")
-    
+
     def get_application(self) -> FastAPI:
         return self.app
 
@@ -90,7 +91,7 @@ class App:
         except Exception as e:
             self.logger.error(f"Health check failed: {str(e)}")
             return {
-                "status": "unhealthy", 
+                "status": "unhealthy",
                 "database": {
                     "status": "disconnected",
                     "error": str(e)

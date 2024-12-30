@@ -1,12 +1,16 @@
+import dotenv
+
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 import uvicorn
+
 
 from core.app import App
 from core.logger import Logger
 from routes.auth import GithubAuthRouter
 from routes.data import DataRouter
 
+dotenv.load_dotenv()
 
 class APIServer:
     def __init__(self):

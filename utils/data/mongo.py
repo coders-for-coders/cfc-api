@@ -10,29 +10,26 @@ from motor.motor_asyncio import (
 )
 
 class MongoManager:
-    _instance = None
-    _client: Optional[AsyncIOMotorClient] 
-    _database: Optional[AsyncIOMotorDatabase] 
-    _collections: Dict[str, AsyncIOMotorCollection] = {}
+    _instances: Dict[str, 'MongoManager'] = {}
+    
+    def __new__(cls, database_name: str):
+        if database_name not in cls._instances:
+            instance = super(MongoManager, cls).__new__(cls)
+            instance._client = None
+            instance._database = None 
+            instance._collections = {}
+            instance._initialize_connection(database_name)
+            cls._instances[database_name] = instance
+        return cls._instances[database_name]
 
-    def __new__(cls, database_name: str = "cfc_db"):
-        if cls._instance is None:
-            cls._instance = super(MongoManager, cls).__new__(cls)
-            cls._instance._database_name = database_name
-        return cls._instance
-
-    def __init__(self, database_name: str = "cfc_db"):
-        self._database_name = database_name
-        if not hasattr(self, '_client'):
-            self._initialize_connection()
-
-    def _initialize_connection(self):
+    def _initialize_connection(self, database_name: str):
         mongodb_url = os.getenv("MONGODB")
         if not mongodb_url:
             raise ValueError("MONGODB environment variable not set")
             
         self._client = AsyncIOMotorClient(mongodb_url)
-        self._database = self._client.get_database(self._database_name)
+        self._database = self._client.get_database(database_name)
+        self._collections = {}
 
     @property
     def client(self) -> AsyncIOMotorClient:
@@ -53,7 +50,7 @@ class MongoManager:
             self._collections[collection_name] = self._database.get_collection(collection_name)
         return self._collections[collection_name]
 
-    async def get_all_documents(self, collection_name: str, filter_query: Optional[dict] = None) -> List[dict]:
+    async def get_all_documents(self, collection_name: str, filter_query: dict | None = None) -> list[dict]:
         try:
             collection = self.get_collection(collection_name)
             documents = await collection.find(filter_query or {}).to_list(length=None)
@@ -122,3 +119,6 @@ class MongoManager:
             self._client = None
             self._database = None
             self._collections = {}
+            if self in self.__class__._instances.values():
+                db_name = next(k for k, v in self.__class__._instances.items() if v == self)
+                del self.__class__._instances[db_name]
