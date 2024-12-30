@@ -3,6 +3,7 @@ from bson.objectid import ObjectId
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from utils.data.mongo import MongoManager
+from random import randrange
 
 class Resource(BaseModel):
     id: str
@@ -13,6 +14,12 @@ class Resource(BaseModel):
     type: str
     icon: str
     path: str
+
+class Question(BaseModel):
+    id: str
+    question: str
+    options: list[dict[str,str]]
+    answer: str
 
 
 class DataRouter:
@@ -25,7 +32,8 @@ class DataRouter:
     """
     def __init__(self):
         self.router = APIRouter(prefix="/api/data")
-        self.db = MongoManager()
+        self.resources = MongoManager("resources")
+        self.quiz = MongoManager("quiz")
         self._setup_routes()
 
 
@@ -39,23 +47,32 @@ class DataRouter:
             methods=["GET"],
             response_model=List[Resource] | Resource,
         )
+
         self.router.add_api_route(
-            path="/resource",
-            endpoint=self.create_resource,
-            methods=["POST"],
-            response_model=dict,
+            path= "/quiz/question",
+            endpoint=self.get_question,
+            methods=["GET"],
+            response_model=Question | list[Question]
         )
-        self.router.add_api_route(
-            path="/resource",
-            endpoint=self.update_resource,
-            methods=["PUT"],
-            response_model=Resource,
-        )
-        self.router.add_api_route(
-            path="/resource", 
-            endpoint=self.delete_resource, 
-            methods=["DELETE"]
-        )
+        # TODO - commented methods need to be fixed
+
+        # self.router.add_api_route(
+        #     path="/resource",
+        #     endpoint=self.create_resource,
+        #     methods=["POST"],
+        #     response_model=dict,
+        # )
+        # self.router.add_api_route(
+        #     path="/resource",
+        #     endpoint=self.update_resource,
+        #     methods=["PUT"],
+        #     response_model=Resource,
+        # )
+        # self.router.add_api_route(
+        #     path="/resource", 
+        #     endpoint=self.delete_resource, 
+        #     methods=["DELETE"]
+        # )
 
     async def get_resource(self, id: Optional[str] = None, type: Optional[str] = None) -> List[Resource] | Resource:
         """
@@ -70,11 +87,11 @@ class DataRouter:
         """
         try:
             if id:
-                resource = await self.db.get_document_by_id("resources", id)
+                resource = await self.resources.get_document_by_id("resources", id)
                 return Resource(**resource)
             else:
                 filter = {"type": type} if type else {}
-                resources = await self.db.get_all_documents("resources", filter)
+                resources = await self.resources.get_all_documents("resources", filter)
                 return [Resource(**resource) for resource in resources]
         except Exception as e:
             raise HTTPException(
@@ -82,55 +99,66 @@ class DataRouter:
                 detail="Failed to fetch resource" if id else "An error occurred while fetching resources"
             )
 
-    async def create_resource(self, resource: Resource) -> dict:
-        """
-        Create a new resource in the database.
+    # async def create_resource(self, resource: Resource) -> dict:
+    #     """
+    #     Create a new resource in the database.
 
-        Args:
-            resource (Resource): The resource data to create.
+    #     Args:
+    #         resource (Resource): The resource data to create.
 
-        Returns:
-            dict: Response containing created resource ID and details
-        """
-        try:
-            created = await self.db.create_document("resources", resource.model_dump(mode="json"))
-            return {
-                "status": "success",
-                "message": "Resource created successfully",
-                "id": str(created["_id"]),
-                "resource": {
-                    "title": created["title"],
-                    "type": created["type"],
-                    "created_at": created.get("_id").generation_time.isoformat()
-                }
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create resource")
+    #     Returns:
+    #         dict: Response containing created resource ID and details
+    #     """
+    #     try:
+    #         created = await self.resources.create_document("resources", resource.model_dump(mode="json"))
+    #         return {
+    #             "status": "success",
+    #             "message": "Resource created successfully",
+    #             "id": str(created["_id"]),
+    #             "resource": {
+    #                 "title": created["title"],
+    #                 "type": created["type"],
+    #                 "created_at": created.get("_id").generation_time.isoformat()
+    #             }
+    #         }
+    #     except Exception as e:
+    #         raise HTTPException(status_code=500, detail=f"Failed to create resource")
 
-    async def update_resource(self, resource: Resource, id: Optional[str] = None) -> Resource:
-        """
-        Update a resource in the database.
+    # async def update_resource(self, resource: Resource, id: Optional[str] = None) -> Resource:
+    #     """
+    #     Update a resource in the database.
 
-        Args:
-            resource (Resource): The updated resource data.
-            id (Optional[str]): The ID of the resource to update.
+    #     Args:
+    #         resource (Resource): The updated resource data.
+    #         id (Optional[str]): The ID of the resource to update.
 
-        Returns:
-            Resource: The updated resource.
-        """
-        try:
-            if not id:
-                raise HTTPException(status_code=400, detail="Resource ID is required")
-            updated = await self.db.update_document("resources", id, resource.dict())
-            return Resource(**updated)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update resource")
+    #     Returns:
+    #         Resource: The updated resource.
+    #     """
+    #     try:
+    #         if not id:
+    #             raise HTTPException(status_code=400, detail="Resource ID is required")
+    #         updated = await self.resources.update_document("resources", id, resource.dict())
+    #         return Resource(**updated)
+    #     except Exception as e:
+    #         raise HTTPException(status_code=500, detail=f"Failed to update resource")
 
-    async def delete_resource(self, id: Optional[str] = None) -> dict[str, str]:
-        try:
-            if not id:
-                raise HTTPException(status_code=400, detail="Resource ID is required")
-            await self.db.delete_document("resources", id)
-            return {"message": "Resource deleted successfully"}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete resource")
+    # async def delete_resource(self, id: Optional[str] = None) -> dict[str, str]:
+    #     try:
+    #         if not id:
+    #             raise HTTPException(status_code=400, detail="Resource ID is required")
+    #         await self.resources.delete_document("resources", id)
+    #         return {"message": "Resource deleted successfully"}
+    #     except Exception as e:
+    #         raise HTTPException(status_code=500, detail=f"Failed to delete resource")
+
+    async def get_question(self) -> Question | list[Question]:
+
+        data = await self.quiz.get_all_documents("quiz")
+
+        # question = Quiz(**data)
+
+        print(data)
+
+        return {}
+
