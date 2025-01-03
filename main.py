@@ -7,7 +7,7 @@ import uvicorn
 
 from core.app import App
 from core.logger import Logger
-from routes.auth import GithubAuthRouter
+from routes.github_auth import GithubAuthRouter
 from routes.data import DataRouter
 
 dotenv.load_dotenv()
