@@ -2,10 +2,14 @@ from typing import Optional
 
 import traceback
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from datetime import datetime, timedelta
+from uuid import UUID, uuid4
+import jwt
 
 from models.post import Post
 from models.quiz import Question
+from models.user import User, Session
 from utils.data.mongo import MongoManager
 
 
@@ -14,8 +18,8 @@ class DataRouter:
         self.router: APIRouter = APIRouter(prefix="/api/data")
         self.quiz: MongoManager = MongoManager("quiz_db")
         self.posts: MongoManager = MongoManager("posts_db")
+        self.users: MongoManager = MongoManager("users_db")
         self._setup_routes()
-
 
     def _setup_routes(self):
         """
@@ -52,6 +56,35 @@ class DataRouter:
             endpoint=self.delete_post, 
             methods=["DELETE"]
         )
+
+        self.router.add_api_route(
+            path="/me",
+            endpoint=self.get_current_user,
+            methods=["GET"],
+            response_model=User
+        )
+
+    async def get_current_user(self, request: Request) -> User:
+        """Get the currently logged in user's data"""
+        token = request.cookies.get("session")
+        if not token:
+            raise HTTPException(status_code=401, detail="No session token provided")
+            
+        try:
+            payload = jwt.decode(token, self.jwt_secret, algorithms=["HS256"])
+            user_id = payload["sub"]
+            
+            user = await self.users.get_collection("users").find_one({"id": user_id})
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            user["id"] = UUID(user["id"])
+            return User(**user)
+
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=401, detail="Invalid session token")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def get_post(self, id: str | None = None, type: str | None = None) -> list[Post] | Post:
         """
@@ -140,8 +173,6 @@ class DataRouter:
             return {"message": "Post deleted successfully"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete post")
-
-
 
     async def get_question(self, id: str | None = None) -> Question | list[Question]:
         """

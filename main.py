@@ -7,8 +7,9 @@ import uvicorn
 
 from core.app import App
 from core.logger import Logger
-from routes.github_auth import GithubAuthRouter
-from routes.data import DataRouter
+from routes.auth.discord import DiscordAuthRouter
+from routes.auth.github import GithubAuthRouter
+from routes.data.data import DataRouter
 
 dotenv.load_dotenv()
 
@@ -21,11 +22,13 @@ class APIServer:
     def _setup_routers(self):
      
         self.data_router = DataRouter()
-        self.auth_router = GithubAuthRouter()
+        self.github_router = GithubAuthRouter()
+        self.discord_router = DiscordAuthRouter()
         
         self.app.configure_routes([
             self.data_router.router,
-            self.auth_router.router,
+            self.github_router.router,
+            self.discord_router.router,
             self._docs_router(),
             self._health_router()
         ])

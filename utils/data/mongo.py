@@ -23,9 +23,9 @@ class MongoManager:
         return cls._instances[database_name]
 
     def _initialize_connection(self, database_name: str):
-        mongodb_url = os.getenv("MONGODB")
+        mongodb_url = os.getenv("MONGODB_URI")
         if not mongodb_url:
-            raise ValueError("MONGODB environment variable not set")
+            raise ValueError("MONGODB_URI environment variable not set")
             
         self._client = AsyncIOMotorClient(mongodb_url)
         self._database = self._client.get_database(database_name)
